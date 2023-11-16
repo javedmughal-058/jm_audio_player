@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:jm_audio_player/view/home_Page.dart';
 import 'package:get/get.dart';
+import 'package:just_audio_background/just_audio_background.dart';
 import 'controller/audio_controller.dart';
 
-void main() {
+Future<void> main() async {
+  await JustAudioBackground.init(
+    androidNotificationChannelId: 'com.example.jm_audio_player',
+    androidNotificationChannelName: 'JM Audio Player',
+    // androidNotificationOngoing: true,
+  );
   runApp(const MyApp());
 }
 
@@ -15,7 +21,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     Get.put(AudioController());
 
-    return MaterialApp(
+    return GetMaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'JM Audio Player',
       theme: ThemeData(

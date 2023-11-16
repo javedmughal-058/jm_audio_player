@@ -1,10 +1,8 @@
 import 'dart:developer';
-
-import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:jm_audio_player/controller/audio_controller.dart';
-import 'package:jm_audio_player/utils/helper.dart';
+import 'package:jm_audio_player/view/playing_screen.dart';
 import 'package:lottie/lottie.dart';
 import 'package:on_audio_query/on_audio_query.dart';
 
@@ -46,6 +44,16 @@ class _MyHomePageState extends State<MyHomePage> {
         backgroundColor: Theme.of(context).primaryColorDark,
         title: Text("JM Audio Player", style: Theme.of(context).textTheme.bodyLarge),
         elevation: 2,
+        actions: [
+          IconButton(onPressed: () async {
+              await _audioQuery.querySongs(
+                sortType: null,
+                orderType: OrderType.ASC_OR_SMALLER,
+                uriType: UriType.EXTERNAL,
+                ignoreCase: true,
+              );
+            }, icon: const Icon(Icons.refresh, color: Colors.white))
+        ],
       ),
       body: Center(
         child: !_hasPermission
@@ -80,15 +88,21 @@ class _MyHomePageState extends State<MyHomePage> {
                         return ListTile(
                           contentPadding: const EdgeInsets.symmetric(vertical: 2, horizontal: 25),
                           onTap: (){
-
-                            if(audioController.audioPlayerState.value == PlayerState.PLAYING && audioController.playingIndex.value == index.toString()){
+                            log("playIndex ${index.toString()}");
+                            log("Value ${audioController.isPlaying.value}");
+                            if(audioController.isPlaying.value && audioController.playingIndex.value == index.toString()){
+                              log("Stop...........................");
                               audioController.stopAudio();
                             }
                             else{
-                              audioController.audioPlayerState.value = PlayerState.PLAYING;
+                              log("idr...........................");
+                              audioController.isPlaying.value = true;
+                              log("Playing.......................${audioController.isPlaying.value}");
                               audioController.playingIndex.value = index.toString();
-                              audioController.playingSongName.value = item.data![index].title;
-                              audioController.playAudio(item.data![index].data);
+                              audioController.songData = item.data!;
+                              audioController.playAudio(audioController.songData![index]);
+                              log("playing at ${audioController.playingIndex.value}");
+                              log("playing at ${audioController.playingIndex.value}");
                             }
                           },
                           title: Text(item.data![index].title, style: Theme.of(context).textTheme.bodyMedium),
@@ -100,78 +114,82 @@ class _MyHomePageState extends State<MyHomePage> {
                               // Text(Helper.convertToTime(duration: item.data![index].duration!), style: Theme.of(context).textTheme.bodySmall),
                             ],
                           ),
-                          trailing: Obx(()=> audioController.playingIndex.value == index.toString() &&  audioController.audioPlayerState.value == PlayerState.PLAYING
+                          trailing: Obx(()=> audioController.playingIndex.value == index.toString() &&   audioController.isPlaying.value
                               ? const Icon(Icons.pause, color: Colors.white)
                               : const Icon(Icons.play_arrow, color: Colors.white)),
-                          leading: Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).primaryColor,
-                              borderRadius: BorderRadius.circular(50),
+                          leading: QueryArtworkWidget(
+                            id: item.data![index].id,
+                            type: ArtworkType.AUDIO,
+                            nullArtworkWidget: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).primaryColor,
+                                borderRadius: BorderRadius.circular(50),
+                              ),
+                              child: const Icon(Icons.music_note_outlined, color: Colors.white),
                             ),
-                            child: const Icon(Icons.music_note_outlined, color: Colors.white),
                           ),
                         );
                       },
                     ),
-                    Obx(()=> audioController.audioPlayerState.value == PlayerState.PLAYING
-                        || audioController.audioPlayerState.value == PlayerState.PAUSED
-                        || audioController.audioPlayerState.value == PlayerState.COMPLETED
+                    Obx(()=> audioController.isPlaying.value
                         ? Positioned(
                           bottom: 0,
                           right: 20,
                           left: 20,
-                          child: Container(
-                            height: 50,
-                            margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 5),
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).primaryColor,
-                              borderRadius: BorderRadius.circular(12)
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Row(
-                                  children: [
-                                    GestureDetector(
-                                      onTap: (){
-                                        if(audioController.audioPlayerState.value == PlayerState.PLAYING){
-                                          audioController.audioPlayerState.value = PlayerState.PAUSED;
-                                          audioController.pauseAudio();
-                                        }
-                                        else{
-                                          audioController.audioPlayerState.value = PlayerState.PLAYING;
-                                          audioController.resumeAudio();
-                                        }
-                                      },
-                                      child: Container(
-                                        margin: const EdgeInsets.only(right: 10),
-                                        padding: const EdgeInsets.all(4),
-                                          decoration: const BoxDecoration(
-                                            color: Colors.white,
-                                            shape: BoxShape.circle
-                                          ),
-                                          child: Icon(audioController.audioPlayerState.value == PlayerState.PLAYING
-                                              ? Icons.pause : Icons.play_arrow_outlined, color: Theme.of(context).primaryColor)),
-                                    ),
-                                    Obx(()=> SizedBox(
-                                      width: 150,
-                                      child: Text(audioController.playingSongName.value, maxLines: 1,overflow: TextOverflow.ellipsis,
-                                          style: Theme.of(context).textTheme.bodySmall),
-                                    )),
-                                  ],
-                                ),
-                                audioController.audioPlayerState.value == PlayerState.PAUSED || audioController.audioPlayerState.value == PlayerState.COMPLETED
-                                    ? GestureDetector(
-                                      onTap: (){
-                                        audioController.audioPlayerState.value = PlayerState.STOPPED;
-                                      },
-                                      child: const Icon(Icons.highlight_remove, color: Colors.white, size: 28),
-                                    )
-                                    : Lottie.asset('assets/audio/play1.json', width: 40)
+                          child: GestureDetector(
+                            onTap: ()=> Get.to(()=> PlayingScreen(songData: audioController.songData!), transition: Transition.downToUp),
+                            child: Container(
+                              height: 50,
+                              margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 5),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).primaryColor,
+                                borderRadius: BorderRadius.circular(12)
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Row(
+                                    children: [
+                                      GestureDetector(
+                                        onTap: (){
+                                          if(!audioController.isPause.value){
+                                            audioController.pauseAudio();
+                                          }
+                                          else{
+                                            audioController.isPlaying.value = true;
+                                            audioController.resumeAudio();
+                                          }
+                                        },
+                                        child: Container(
+                                          margin: const EdgeInsets.only(right: 10),
+                                          padding: const EdgeInsets.all(4),
+                                            decoration: const BoxDecoration(
+                                              color: Colors.white,
+                                              shape: BoxShape.circle
+                                            ),
+                                            child: Icon(audioController.isPause.value
+                                                ? Icons.play_arrow_outlined : Icons.pause, color: Theme.of(context).primaryColor)),
+                                      ),
+                                      SizedBox(
+                                        width: 150,
+                                        child: Text(audioController.playingSongName.value, maxLines: 1,overflow: TextOverflow.ellipsis,
+                                            style: Theme.of(context).textTheme.bodySmall),
+                                      ),
+                                    ],
+                                  ),
+                                  audioController.isPause.value
+                                      ? GestureDetector(
+                                        onTap: (){
+                                          audioController.stopAudio();
+                                        },
+                                        child: const Icon(Icons.highlight_remove, color: Colors.white, size: 28),
+                                      )
+                                      : Lottie.asset('assets/audio/play1.json', width: 40)
 
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         )
